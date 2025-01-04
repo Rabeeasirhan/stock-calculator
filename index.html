@@ -112,6 +112,15 @@
         .action-buttons {
             white-space: nowrap;
         }
+        .recommendation {
+            font-weight: bold;
+        }
+        .recommended {
+            color: green;
+        }
+        .not-recommended {
+            color: red;
+        }
     </style>
 </head>
 <body>
@@ -276,9 +285,9 @@
             tbody.innerHTML = '';
 
             transactions.forEach((transaction, index) => {
-                const row = tbody.insertRow();
                 const symbol = getCurrencySymbol(transaction.currency);
                 
+                row = tbody.insertRow();
                 row.insertCell(0).textContent = transaction.stockName;
                 row.insertCell(1).textContent = `${transaction.totalAmount.toFixed(2)} ${symbol}`;
                 row.insertCell(2).textContent = `${transaction.price.toFixed(2)} ${symbol}`;
@@ -302,11 +311,13 @@
                     summaries[t.currency] = {
                         totalShares: 0,
                         totalInvestment: 0,
-                        averagePrice: 0
+                        averagePrice: 0,
+                        minPrice: Infinity
                     };
                 }
                 summaries[t.currency].totalShares += t.quantity;
                 summaries[t.currency].totalInvestment += t.totalAmount;
+                summaries[t.currency].minPrice = Math.min(summaries[t.currency].minPrice, t.price);
             });
 
             const summaryDiv = document.getElementById('summaryByCurrency');
@@ -315,16 +326,43 @@
             for (const [currency, data] of Object.entries(summaries)) {
                 const symbol = getCurrencySymbol(currency);
                 data.averagePrice = data.totalInvestment / data.totalShares;
-                
+
+                // חישוב אחוז העלייה לרווחיות
+                const neededIncrease = ((data.averagePrice - data.minPrice) / data.minPrice) * 100;
+
+                const recommendationClass = neededIncrease <= 10 ? 'recommended' : 'not-recommended';
+                const recommendationText = neededIncrease <= 10 ? 'מומלץ' : 'לא מומלץ';
+
                 const summaryHTML = `
                     <div class="currency-summary">
                         <h4>סיכום ${symbol}:</h4>
                         <p>סה"כ מניות: ${data.totalShares.toFixed(2)}</p>
                         <p>מחיר ממוצע למניה: ${data.averagePrice.toFixed(2)} ${symbol}</p>
                         <p>סה"כ השקעה: ${data.totalInvestment.toFixed(2)} ${symbol}</p>
+                        <p>אחוז עליית מחיר המניה הנדרש לרווחיות: ${neededIncrease.toFixed(2)}%</p>
+                        <p class="recommendation ${recommendationClass}">${recommendationText}</p>
                     </div>
                 `;
                 summaryDiv.innerHTML += summaryHTML;
+
+                // ניתוח טכני
+                const technicalAnalysisHTML = `
+                    <div class="currency-summary">
+                        <h4>רמות תמיכה והתנגדות:</h4>
+                        <p>הנה חישוב רמות תמיכה והתנגדות:</p>
+                        <p>רמת התנגדות גבוהה: ${Math.max(...transactions.map(t => t.price))}</p>
+                        <p>רמת תמיכה נמוכה: ${Math.min(...transactions.map(t => t.price))}</p>
+                        
+                        <h5>ניתוח פיבונאצ'י:</h5>
+                        <ul>
+                            <li>23.6%: ${(Math.max(...transactions.map(t => t.price)) - Math.min(...transactions.map(t => t.price))) * 0.236 + Math.min(...transactions.map(t => t.price))}</li>
+                            <li>38.2%: ${(Math.max(...transactions.map(t => t.price)) - Math.min(...transactions.map(t => t.price))) * 0.382 + Math.min(...transactions.map(t => t.price))}</li>
+                            <li>50%: ${(Math.max(...transactions.map(t => t.price)) - Math.min(...transactions.map(t => t.price))) * 0.50 + Math.min(...transactions.map(t => t.price))}</li>
+                            <li>61.8%: ${(Math.max(...transactions.map(t => t.price)) - Math.min(...transactions.map(t => t.price))) * 0.618 + Math.min(...transactions.map(t => t.price))}</li>
+                        </ul>
+                    </div>
+                `;
+                summaryDiv.innerHTML += technicalAnalysisHTML;
             }
         }
 
