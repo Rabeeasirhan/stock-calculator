@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>מחשבון קניות מניות</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #e8f4f8;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #34495e;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .calculated-amount {
+            background-color: #e8f5e9;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .edit-btn {
+            background-color: #3498db;
+        }
+        .edit-btn:hover {
+            background-color: #2980b9;
+        }
+        .delete-btn {
+            background-color: #e74c3c;
+        }
+        .delete-btn:hover {
+            background-color: #c0392b;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: white;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+            color: #2c3e50;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f5e9;
+            border-radius: 8px;
+        }
+        .currency-symbol {
+            font-weight: bold;
+        }
+        .currency-summary {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: white;
+        }
+        .action-buttons {
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>מחשבון קניות מניות</h1>
+        
+        <div class="input-group">
+            <label for="stockName">שם המניה:</label>
+            <input type="text" id="stockName" required>
+            
+            <label for="totalAmount">סכום קנייה כולל:</label>
+            <input type="number" id="totalAmount" min="1" required oninput="calculateShares()">
+            
+            <label for="currency">מטבע:</label>
+            <select id="currency" onchange="calculateShares()">
+                <option value="ILS">₪ שקל</option>
+                <option value="USD">$ דולר</option>
+            </select>
+
+            <label for="price">מחיר למניה:</label>
+            <input type="number" id="price" min="0" step="0.01" required oninput="calculateShares()">
+            
+            <div id="calculatedShares" class="calculated-amount">
+                כמות מניות מחושבת: 0
+            </div>
+
+            <button id="submitBtn" onclick="addTransaction()">הוסף קנייה</button>
+            <button id="updateBtn" onclick="updateTransaction()" style="display: none;">עדכן קנייה</button>
+            <button id="cancelBtn" onclick="cancelEdit()" style="display: none;">בטל עריכה</button>
+        </div>
+
+        <table id="transactionsTable">
+            <thead>
+                <tr>
+                    <th>שם המניה</th>
+                    <th>סכום קנייה</th>
+                    <th>מחיר למניה</th>
+                    <th>כמות מניות</th>
+                    <th>מטבע</th>
+                    <th>פעולות</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <div class="results">
+            <h3>סיכום לפי מטבע:</h3>
+            <div id="summaryByCurrency"></div>
+        </div>
+    </div>
+
+    <script>
+        let transactions = [];
+        let editIndex = -1;
+
+        function calculateShares() {
+            const totalAmount = parseFloat(document.getElementById('totalAmount').value) || 0;
+            const price = parseFloat(document.getElementById('price').value) || 0;
+            
+            if (totalAmount && price) {
+                const shares = Math.floor(totalAmount / price * 100) / 100; // עיגול ל-2 ספרות אחרי הנקודה
+                document.getElementById('calculatedShares').textContent = 
+                    `כמות מניות מחושבת: ${shares.toFixed(2)}`;
+                return shares;
+            } else {
+                document.getElementById('calculatedShares').textContent = 'כמות מניות מחושבת: 0';
+                return 0;
+            }
+        }
+
+        function addTransaction() {
+            const stockName = document.getElementById('stockName').value;
+            const totalAmount = parseFloat(document.getElementById('totalAmount').value);
+            const currency = document.getElementById('currency').value;
+            const price = parseFloat(document.getElementById('price').value);
+            const quantity = calculateShares();
+
+            if (!stockName || !totalAmount || !price) {
+                alert('נא למלא את כל השדות');
+                return;
+            }
+
+            const transaction = {
+                stockName,
+                totalAmount,
+                currency,
+                price,
+                quantity
+            };
+
+            transactions.push(transaction);
+            updateTable();
+            calculateTotals();
+            clearInputs();
+        }
+
+        function editTransaction(index) {
+            editIndex = index;
+            const transaction = transactions[index];
+            
+            document.getElementById('stockName').value = transaction.stockName;
+            document.getElementById('totalAmount').value = transaction.totalAmount;
+            document.getElementById('currency').value = transaction.currency;
+            document.getElementById('price').value = transaction.price;
+            calculateShares();
+
+            document.getElementById('submitBtn').style.display = 'none';
+            document.getElementById('updateBtn').style.display = 'inline';
+            document.getElementById('cancelBtn').style.display = 'inline';
+        }
+
+        function updateTransaction() {
+            if (editIndex === -1) return;
+
+            const stockName = document.getElementById('stockName').value;
+            const totalAmount = parseFloat(document.getElementById('totalAmount').value);
+            const currency = document.getElementById('currency').value;
+            const price = parseFloat(document.getElementById('price').value);
+            const quantity = calculateShares();
+
+            if (!stockName || !totalAmount || !price) {
+                alert('נא למלא את כל השדות');
+                return;
+            }
+
+            transactions[editIndex] = {
+                stockName,
+                totalAmount,
+                currency,
+                price,
+                quantity
+            };
+
+            updateTable();
+            calculateTotals();
+            clearInputs();
+            cancelEdit();
+        }
+
+        function deleteTransaction(index) {
+            if (confirm('האם אתה בטוח שברצונך למחוק קנייה זו?')) {
+                transactions.splice(index, 1);
+                updateTable();
+                calculateTotals();
+            }
+        }
+
+        function cancelEdit() {
+            editIndex = -1;
+            clearInputs();
+            document.getElementById('submitBtn').style.display = 'inline';
+            document.getElementById('updateBtn').style.display = 'none';
+            document.getElementById('cancelBtn').style.display = 'none';
+        }
+
+        function getCurrencySymbol(currency) {
+            return currency === 'ILS' ? '₪' : '$';
+        }
+
+        function updateTable() {
+            const tbody = document.querySelector('#transactionsTable tbody');
+            tbody.innerHTML = '';
+
+            transactions.forEach((transaction, index) => {
+                const row = tbody.insertRow();
+                const symbol = getCurrencySymbol(transaction.currency);
+                
+                row.insertCell(0).textContent = transaction.stockName;
+                row.insertCell(1).textContent = `${transaction.totalAmount.toFixed(2)} ${symbol}`;
+                row.insertCell(2).textContent = `${transaction.price.toFixed(2)} ${symbol}`;
+                row.insertCell(3).textContent = transaction.quantity.toFixed(2);
+                row.insertCell(4).textContent = symbol;
+                
+                const actionsCell = row.insertCell(5);
+                actionsCell.className = 'action-buttons';
+                actionsCell.innerHTML = `
+                    <button class="edit-btn" onclick="editTransaction(${index})">ערוך</button>
+                    <button class="delete-btn" onclick="deleteTransaction(${index})">מחק</button>
+                `;
+            });
+        }
+
+        function calculateTotals() {
+            const summaries = {};
+            
+            transactions.forEach(t => {
+                if (!summaries[t.currency]) {
+                    summaries[t.currency] = {
+                        totalShares: 0,
+                        totalInvestment: 0,
+                        averagePrice: 0
+                    };
+                }
+                summaries[t.currency].totalShares += t.quantity;
+                summaries[t.currency].totalInvestment += t.totalAmount;
+            });
+
+            const summaryDiv = document.getElementById('summaryByCurrency');
+            summaryDiv.innerHTML = '';
+
+            for (const [currency, data] of Object.entries(summaries)) {
+                const symbol = getCurrencySymbol(currency);
+                data.averagePrice = data.totalInvestment / data.totalShares;
+                
+                const summaryHTML = `
+                    <div class="currency-summary">
+                        <h4>סיכום ${symbol}:</h4>
+                        <p>סה"כ מניות: ${data.totalShares.toFixed(2)}</p>
+                        <p>מחיר ממוצע למניה: ${data.averagePrice.toFixed(2)} ${symbol}</p>
+                        <p>סה"כ השקעה: ${data.totalInvestment.toFixed(2)} ${symbol}</p>
+                    </div>
+                `;
+                summaryDiv.innerHTML += summaryHTML;
+            }
+        }
+
+        function clearInputs() {
+            document.getElementById('stockName').value = '';
+            document.getElementById('totalAmount').value = '';
+            document.getElementById('price').value = '';
+            document.getElementById('calculatedShares').textContent = 'כמות מניות מחושבת: 0';
+        }
+    </script>
+</body>
+</html>
